@@ -11,7 +11,14 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,18 +40,28 @@ jobs:
             main.py
 
       - name: Create .dmg
-        run: hdiutil create -volname qtProperTree -srcfolder dist/qtProperTree.app -ov -format UDZO dist/qtProperTree.dmg
+        run: hdiutil create -volname qtProperTree -srcfolder dist/qtProperTree.app -ov -format UDZO dist/qtProperTree-${{ matrix.arch }}.dmg
 
       - name: Upload .dmg artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qtProperTree-macOS
-          path: dist/qtProperTree.dmg
+          name: qtProperTree-macOS-${{ matrix.arch }}
+          path: dist/qtProperTree-${{ matrix.arch }}.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: qtProperTree-macOS-*
+          merge-multiple: true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.sha }}
           name: Build ${{ github.ref_name }}@${{ github.sha }}
-          files: dist/qtProperTree.dmg
+          files: "*.dmg"
           prerelease: true
