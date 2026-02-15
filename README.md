@@ -32,7 +32,18 @@ qtProperTree is a Qt port of [ProperTree](https://github.com/corpnewt/ProperTree
 
 ### Downloading A Release
 
-Pre-built macOS `.dmg` files (arm64 and x86_64) are available on the [releases page](https://github.com/SteveParson/qtProperTree/releases). Download the `.dmg` for your architecture, open it, and drag the app to your Applications folder.
+Pre-built binaries are available on the [releases page](https://github.com/SteveParson/qtProperTree/releases).
+
+**macOS** — download the `.dmg` for your architecture (arm64 or x86_64), open it, and drag the app to your Applications folder.
+
+**Linux** — download `qtProperTree-x86_64.AppImage`, make it executable, and run it:
+
+```
+chmod +x qtProperTree-x86_64.AppImage
+./qtProperTree-x86_64.AppImage
+```
+
+The AppImage is self-contained and requires no installation. It is built on Ubuntu 22.04 (glibc 2.35) and is compatible with Fedora 36+, Ubuntu 22.04+, Debian 12+, and most other distributions from 2022 onwards. On some systems you may need to install FUSE (`dnf install fuse` / `apt install fuse`) or run with `--appimage-extract-and-run` if your distribution does not include it by default.
 
 ### Cloning The Repo Via Git
 

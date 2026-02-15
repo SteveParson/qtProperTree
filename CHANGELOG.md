@@ -18,7 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - CI: replaced deprecated `macos-13` GitHub Actions runner with `macos-15-intel` for x86_64 builds.
 - CI: build release tags now use a `YYYY-MM-DD` date format instead of the full commit SHA.
-- CI: release descriptions now show the contents of the Unreleased section of CHANGELOG.md instead of unrelated auto-generated commit messages.
+- CI: release descriptions now show the contents of the topmost CHANGELOG.md section instead of unrelated auto-generated commit messages.
+- CI: Linux AppImage build added; releases now include a pre-built `x86_64` AppImage compatible with Fedora 36+, Ubuntu 22.04+, Debian 12+, and other glibc 2.35+ distributions.
 - Drag-and-drop: locked the dragged item to the one clicked at mouse-down, preventing children from being grabbed instead when the cursor drifted during a drag.
 - Drag-and-drop: hovering over an expanded sibling's children no longer causes the dragged item to be inserted inside that sibling; it now always reorders at the same level.
 - Drag-and-drop: added hysteresis to prevent items from oscillating when the cursor rests near a row boundary after a swap.
