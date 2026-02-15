@@ -105,6 +105,11 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
+      - name: Update release tag to current commit
+        run: |
+          git tag -f build-${{ steps.date.outputs.date }}
+          git push origin -f build-${{ steps.date.outputs.date }}
+
       - name: Extract changelog section
         id: changelog
         run: |
