@@ -1,121 +1,103 @@
 # What is it?
 
-ProperTree is a cross-platform GUI plist editor written using Python *(compatible with both 2.x and 3.x)* and Tkinter.
+qtProperTree is a cross-platform GUI plist editor written in Python and Qt (PySide6).
+
+## Disclaimer
+
+The code in this repository was authored with the assistance of a large language model (LLM). It is provided as-is, without warranty of any kind. The maintainer takes no responsibility for bugs, data loss, or any other issues that may arise from its use. Use at your own risk.
+
+## Acknowledgements
+
+qtProperTree is a Qt port of [ProperTree](https://github.com/corpnewt/ProperTree) by [corpnewt](https://github.com/corpnewt). All credit for the original concept, feature set, and OpenCore integration goes to them.
 
 ## Features
 
-- [x] Cross-platform - should work anywhere python and tkinter do
+- [x] Cross-platform - works on macOS, Windows, and Linux
 - [x] Document-based to support multiple windows
-- [x] Node drag and drop to reorder
+- [x] Reorder nodes by drag and drop, or with `Ctrl+Up` / `Ctrl+Down` — moves are fully undoable
 - [x] Copy and paste
 - [x] Find/Replace - allows searching keys or values
 - [x] Ordered - or unordered - dictionary support
 - [x] Full undo-redo stack
-- [x] Backported support for binary property lists and unicode in python 2
 - [x] Expanded integer casting to allow for hex integers (eg. `0xFFFF`) in xml `<integer>` tags
 - [x] Context-aware right-click menu that includes template info to OpenCore or Clover config.plist files
 - [x] OC (Clean) Snapshot to walk the contents of ACPI, Drivers, Kexts, and Tools for OpenCore config.plist files
 - [x] Value converter that supports Base64, Hex, Ascii, and Decimal
+- [x] Settings dialog (`Ctrl+,`) to configure behaviour, display defaults, drag dead zone, undo limit, and more
 
 ***
 
-## Getting ProperTree
+## Getting qtProperTree
 
-### Downloading The Repo As A ZIP File
+### Downloading A Release
 
-On any system you can choose the green `Code` button, followed by the `Download ZIP` button (or click [here](https://github.com/corpnewt/ProperTree/archive/refs/heads/master.zip)) to download the entire repo as a zip file (note, this does not allow you to update via `git pull` - any updates would require you to download the repo again in the same fashion).
+Pre-built macOS `.dmg` files (arm64 and x86_64) are available on the [releases page](https://github.com/SteveParson/qtProperTree/releases). Download the `.dmg` for your architecture, open it, and drag the app to your Applications folder.
 
 ### Cloning The Repo Via Git
 
-#### On *nix systems:
-
 ```
-git clone https://github.com/corpnewt/ProperTree
-python ./ProperTree/ProperTree.py
-- or -
-python3 ./ProperTree/ProperTree.py
+git clone https://github.com/SteveParson/qtProperTree
+cd qtProperTree
 ```
 
-\* On macOS, you can simply double-click the `ProperTree.command` after cloning to launch.
+### Running
 
-#### On Windows:
+qtProperTree requires Python 3.12 and uses [uv](https://docs.astral.sh/uv/) for dependency management.
 
 ```
-git clone https://github.com/corpnewt/ProperTree
-./ProperTree/ProperTree.bat
+uv run python main.py
+```
+
+Or install via the project script entry point:
+
+```
+uv run qtpropertree
 ```
 
 ***
 
-## FAQ
-
-* **What does OC Snapshot do?**
-
-  The OC Snapshot function will prompt you to select an OC folder, then walk the contents of the ACPI, Kexts, Tools, and Drivers directories within that folder - comparing all entries to the current document's `ACPI -> Add`, `Kernel -> Add`, `Misc -> Tools`, and `UEFI -> Drivers` respectively.  It will add or remove entries as needed, and also ensures kext load order by comparing each kext's `CFBundleIdentifier` to all other kexts' `OSBundleLibraries` within their Info.plist - making sure that any kext that is relied on by others is loaded before them.  It will also warn if it detects duplicate `CFBundleIdentifiers` (with support for `MinKernel`, `MaxKernel`, and `MatchKernel` overlap checks), and offer to disable all after the first found.  It checks for disabled parent kexts with enabled child kexts as well.  The schema used is (by default) determined by comparing the MD5 hash of the `OpenCore.efi` file to a known list of Acidanthera debug/release versions.  If the MD5 hash does not match any known version, it will fall back to the newest schema in the script's `snapshot.plist`.  This behavior can be customized in the Settings per the `OC Snapshot Target Version` menu.
-
-* **What is the difference between OC Snapshot and OC Clean Snapshot?**
-
-  Both snapshot variants accomplish the same tasks - they just leverage different starting points.  An OC **Clean** Snapshot will first clear out `ACPI -> Add`, `Kernel -> Add`, `Misc -> Tools`, and `UEFI -> Drivers`, then add everything from within the respective ACPI, Kexts, Tools, and Drivers directory anew.  A regular OC Snapshot starts with the information within the current document for those four locations, and only pulls changes - adding and removing entries as needed.
-  
-* **When should I use an OC Clean Snapshot vs an OC Snapshot?**
-
-  Typically, an OC **Clean** Snapshot should only be used the first time you snapshot to ensure any sample entries in the config.plist are removed and added anew.  Every subsequent snapshot should be a regular OC Snapshot to ensure any customizations you've made are preserved.
-
-* **Can't click anything on Sonoma (14.x) and Newer**
-
-  This appears to manifest when using python 3.11.x and older due to some isssue with tk and macOS.  Updating to at least python 3.12.0 (found [here](https://www.python.org/downloads/macos/)) appears to fix it.  If you are unable to update your python version, you can also move the window around before trying to click the elements in the treeview.
-
-* **ProperTree opens a black window on macOS Monterey (12.x) and Newer**
-
-  It appears the default tk implementation that ships with macOS Monterey (and the version installed with the Command Line Tools) doesn't display correctly.  A workaround is to download and install the latest build of python from python.org (found [here](https://www.python.org/downloads/macos/)) which has a compatible tk bundled, then use the `buildapp-select.command` located in ProperTree's `Scripts` directory to build an application bundle targeting the installed python's path.  You can then leverage the `ProperTree.app` bundle it creates.
-  
-* **ProperTree cannot open or save plist files on macOS Monterey (12.x)**
-
-  This appears to be an issue with the built-in tk, and the earlier "universal" installers from python.org.  With at least python 3.10.2, this issue has been resolved in the universal builds.  You can get the latest python 3 installer [here](https://www.python.org/downloads/macos/).  After installing, use the `buildapp-select.command` located in ProperTree's `Scripts` directory to build an application bundle targeting the installed python's path.  You can then leverage the `ProperTree.app` bundle it creates.
-
-* **How can I have ProperTree open when I double-click a .plist file?**
-
-  On macOS you can run `buildapp-select.command` located in ProperTree's `Scripts` directory to build an application bundle which can be associated with .plist files.
-  
-  On Windows, you can run `AssociatePlistFiles.bat` located in ProperTree's `Scripts` directory to associate .plist files with `ProperTree.bat`, and also to add an `Open with ProperTree` option to the contextual menu when right-clicking .plist files.  This approach is location-dependent, and moving your copy of ProperTree will require you re-run `AssociatePlistFiles.bat`.
-
-* **When I try to run ProperTree, I get `[ModuleNotFoundError: No module name 'tkinter']`**
-
-  That is because the graphical interface library that ProperTree depends on isn't present or cannot be detected, you need to install `tkinter` from your package manager. 
-
-  To install it on Ubuntu (and Ubuntu-based distros), you can run `sudo apt-get install python3-tk -y`
-
-* **ProperTree doesn't run because it doesn't have permissions, what gives?**
-
-  This shouldn't happen and it is recommended that you download only from the official ProperTree repository, but if you are confident about your source, then running `chmod +x ProperTree.command` should sort it out
-
-* **I use an international keyboard layout on macOS and some keys crash ProperTree with `NSRangeException', reason: '-[__NSCFConstantString characterAtIndex:]: Range or index out of bounds`**
-
-  This is a bug in the Cocoa implementation of Tcl/Tk on macOS (discussed [here](https://bugs.python.org/issue22566)).  The latest python 2 installer from [python.org](https://www.python.org/downloads/release/python-2718/) ships with, and uses Tcl/Tk 8.6.8 which has this issue fixed.  Given that the shebang in `ProperTree.command` leverages `#!/usr/bin/env python` - the first python 2 binary found should be used. `buildapp-select.command` from ProperTree's `Scripts` directory can be used to hardcode a specific python install's path into the .app bundle's executable shebang.
-  
-* **ProperTree crashes on Big Sur (macOS 11)**
-
-  __As of macOS 11.2 (20D5029f), the system's `tk` installation appears to be fixed, and works correctly.  As such, it should not require an external python version to function.__
-
-  This is due to the default python installs on macOS leveraging an older `tk` version - which lacks support for macOS 11.  To solve this, you can download and install the latest python 3 version from https://www.python.org/downloads/mac-osx/ (note: Currently the "universal" 3.9.1 installer causes theme issues and should not be used) then leverage the `buildapp-select.command` from ProperTree's `Scripts` directory to build a .app bundle that will leverage that python version.
-  
-  If you already have python 3 installed via `brew` or another package manager - it is likely still linking to the system `tk` version, which will still have issues unless linked against a newer version. 
-
-* **`buildapp-select.command` Usage**
-
-  An example of the output of `buildapp-select.command` is shown below.  It will walk the output of `which python` and `which python3`, then attempt to load the `tk` interface while keeping track of which work and which fail.  The example below is from macOS 11.2 (20D4029f) with the system versions of python 2 and 3, as well as python 3.9.1 installed from python.org.  If there's an existing `ProperTree.app` in the directory above the `Scripts` folder, the shebang of that app will be located and served up as the `C. Current` option.  At the following menu, I would select option `3` or `C` to use the non-system python install.
+## Project Structure
 
 ```
- - Currently Available Python Versions -
-
-1. /usr/bin/python 2.7.16 - tk 8.5 (8.6+ recommended)
-2. /usr/bin/python3 3.8.2 - tk 8.5 (8.6+ recommended)
-3. /Library/Frameworks/Python.framework/Versions/3.9/bin/python3 3.9.1 - tk 8.6
-4. /usr/bin/env python
-5. /usr/bin/env python3
-
-C. Current (/Library/Frameworks/Python.framework/Versions/3.9/bin/python3)
-Q. Quit
-
-Please select the python version to use:  
+qtProperTree/
+├── main.py                    # Entry point
+├── propertree/                # Main package
+│   ├── __init__.py
+│   ├── plist.py               # Plist parsing / serialization
+│   ├── qt_app.py              # Application controller
+│   ├── qt_plist_window.py     # Plist editor window
+│   ├── qt_delegates.py        # Tree-view delegates
+│   ├── qt_settings_window.py  # Settings dialog
+│   ├── qt_converter_window.py # Value converter dialog
+│   ├── qt_workers.py          # Background workers (update check, etc.)
+│   ├── config_tex_info.py     # OpenCore Configuration.tex helpers
+│   ├── settings.json          # Default settings
+│   ├── menu.plist             # Context menu templates
+│   └── snapshot.plist         # OC Snapshot schema data
+├── tests/                     # Test suite (pytest)
+└── pyproject.toml
 ```
+
+***
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
+| `Ctrl+C` / `Ctrl+V` | Copy / Paste |
+| `Ctrl+Shift+C` | Copy children |
+| `Ctrl+=` | New row |
+| `Ctrl+-` | Remove row |
+| `Ctrl+Up` | Move selected item up |
+| `Ctrl+Down` | Move selected item down |
+| `Ctrl+[` / `Ctrl+]` | Cycle type backward / forward |
+| `Return` | Edit selected cell |
+| `Delete` / `Backspace` | Remove selected row |
+| `Ctrl+F` | Toggle Find/Replace |
+| `Ctrl+P` | Toggle Type pane |
+| `Ctrl+R` | OC Snapshot |
+| `Ctrl+Shift+R` | OC Clean Snapshot |
+| `Ctrl+,` | Settings |
+| `Ctrl+T` | Value Converter |
+
