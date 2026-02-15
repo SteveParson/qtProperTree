@@ -25,7 +25,6 @@ jobs:
             --osx-bundle-identifier com.steveparson.qtpropertree \
             --add-data "propertree/menu.plist:propertree" \
             --add-data "propertree/snapshot.plist:propertree" \
-            --add-data "propertree/settings.json:propertree" \
             --add-data "propertree/shortcut.icns:propertree" \
             --add-data "propertree/shortcut.ico:propertree" \
             main.py
