@@ -66,7 +66,10 @@ class ProperTreeApp:
         self.regexp = re.compile(r"^-psn_[0-9]+_[0-9]+$")
 
         # Resolve the base directory (where qtProperTree lives)
-        self.base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+        if getattr(sys, "frozen", False):
+            self.base_dir = os.path.dirname(sys.executable)
+        else:
+            self.base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
         # macOS: try to set the app name via NSBundle
         if sys.platform == "darwin":
