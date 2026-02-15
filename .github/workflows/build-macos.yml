@@ -2,7 +2,7 @@ name: Build macOS App
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, 0215-port-to-qt]
     tags: ["v*"]
   workflow_dispatch:
 
