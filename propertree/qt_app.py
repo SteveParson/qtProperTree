@@ -10,6 +10,8 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from propertree import plist
+from propertree.qt_converter_window import ConverterWindow
+from propertree.qt_settings_window import SettingsWindow
 from propertree.qt_workers import TexDownloadWorker, UpdateCheckWorker
 
 
@@ -139,6 +141,18 @@ class ProperTreeApp:
     # ------------------------------------------------------------------
     # Settings persistence
     # ------------------------------------------------------------------
+
+    def show_settings(self):
+        """Open the Settings dialog."""
+        parent = self.get_active_window()
+        dlg = SettingsWindow(self, parent=parent)
+        dlg.exec()
+
+    def show_converter(self):
+        """Open the Value Converter dialog."""
+        parent = self.get_active_window()
+        dlg = ConverterWindow(self, parent=parent)
+        dlg.exec()
 
     def save_settings(self):
         """Save current settings to propertree/settings.json."""

@@ -68,6 +68,8 @@ class PlistWindow(QMainWindow):
         self.drag_undo = None
         self.drag_open = None
         self.clicked_drag = False
+        self.drag_source_item = None
+        self.drag_last_move_y = None
 
         self.last_data = None
         self.last_int = None
@@ -321,6 +323,8 @@ class PlistWindow(QMainWindow):
         edit_menu.addSeparator()
         self._add_action(edit_menu, "New Row", self.new_row, "Ctrl+=")
         self._add_action(edit_menu, "Remove Row", self.remove_row, "Ctrl+-")
+        self._add_action(edit_menu, "Move Up", lambda: self.move_item(-1), "Ctrl+Up")
+        self._add_action(edit_menu, "Move Down", lambda: self.move_item(1), "Ctrl+Down")
 
     def _add_action(self, menu, text, callback, shortcut=None):
         action = QAction(text, self)
@@ -358,6 +362,12 @@ class PlistWindow(QMainWindow):
             return
         if key == Qt.Key_BracketLeft and event.modifiers() & Qt.ControlModifier:
             self.cycle_type(increment=False)
+            return
+        if key == Qt.Key_Up and event.modifiers() & Qt.ControlModifier:
+            self.move_item(-1)
+            return
+        if key == Qt.Key_Down and event.modifiers() & Qt.ControlModifier:
+            self.move_item(1)
             return
         QTreeView.keyPressEvent(self.tree, event)
 
@@ -1309,6 +1319,27 @@ class PlistWindow(QMainWindow):
         finally:
             self.removing_rows = False
 
+    def move_item(self, direction):
+        """Move the selected item up (-1) or down (+1) among its siblings."""
+        index = self.tree.currentIndex()
+        item = self.item_from_index(index)
+        if item is None or item == self.root_item():
+            return
+        parent = item.parent() or self.model.invisibleRootItem()
+        row = item.row()
+        new_row = row + direction
+        if new_row < 0 or new_row >= parent.rowCount():
+            return
+        undo_task = {"type": "move", "item": item, "parent": parent, "index": row}
+        row_data = parent.takeRow(row)
+        parent.insertRow(new_row, row_data)
+        self.tree.setCurrentIndex(self.model.indexFromItem(item))
+        parent_type = self.get_check_type_from_item(parent) if parent != self.model.invisibleRootItem() else ""
+        if parent_type == "array":
+            self._update_array_counts(parent)
+        self.mark_edited()
+        self.add_undo([undo_task])
+
     # ── Children/Array Updates ───────────────────────────────────
 
     def _update_children(self, item):
@@ -1839,6 +1870,11 @@ class PlistWindow(QMainWindow):
             else:
                 menu.addAction("New sibling of '{}'".format(item.text()), lambda: self.new_row(item))
             menu.addAction("Remove '{}'".format(item.text()), lambda: self.remove_row(item))
+            parent = item.parent() or self.model.invisibleRootItem()
+            if item.row() > 0:
+                menu.addAction("Move Up", lambda: self.move_item(-1))
+            if item.row() < parent.rowCount() - 1:
+                menu.addAction("Move Down", lambda: self.move_item(1))
 
         # Sort keys
         parent_for_sort = item if item == root else (item.parent() or self.model.invisibleRootItem())
@@ -2570,6 +2606,10 @@ class PlistWindow(QMainWindow):
             if event.type() == QEvent.MouseButtonPress:
                 self.clicked_drag = True
                 self.drag_start = None
+                self.drag_last_move_y = None
+                press_pos = event.position().toPoint() if hasattr(event.position(), "toPoint") else event.pos()
+                press_index = self.tree.indexAt(press_pos)
+                self.drag_source_item = self.item_from_index(press_index) if press_index.isValid() else None
             elif event.type() == QEvent.MouseMove and self.clicked_drag:
                 if self.controller.settings.get("enable_drag_and_drop", True):
                     self._handle_drag(event)
@@ -2579,12 +2619,80 @@ class PlistWindow(QMainWindow):
                 self.clicked_drag = False
                 self.drag_start = None
                 self.dragging = False
+                self.drag_last_move_y = None
         return super().eventFilter(obj, event)
+
+    def _should_suppress_drop(self, insert_row, source_row, pos_y):
+        """Return True when hysteresis should block the drop.
+
+        After each live swap, the boundary between the two items lands almost
+        exactly under the cursor.  Without this guard every subsequent mouse-move
+        event triggers the reverse swap, causing visible oscillation.
+
+        We require the mouse to travel at least ``threshold`` pixels past the
+        Y position of the previous swap before allowing another swap.
+        """
+        if self.drag_last_move_y is None:
+            return False
+        threshold = 6  # ~1/3 of a typical 20-px row height
+        if insert_row < source_row:  # moving up
+            return pos_y > self.drag_last_move_y - threshold
+        else:  # moving down
+            return pos_y < self.drag_last_move_y + threshold
+
+    def _resolve_drop(self, source_item, drop_item):
+        """Return (target_parent, insert_row) for the drag, or None if invalid.
+
+        When the mouse hovers over a descendant of a sibling (because that sibling
+        is expanded), walk up to the sibling level so the move is always a sibling
+        reorder rather than an accidental insertion into the expanded collection.
+        """
+        if drop_item is None or drop_item == source_item:
+            return None
+
+        source_parent = source_item.parent() or self.model.invisibleRootItem()
+
+        # Walk up from drop_item to find its ancestor that lives at the same level
+        # as source_item (i.e. whose parent == source_parent).
+        candidate = drop_item
+        while candidate is not None:
+            candidate_parent = candidate.parent() or self.model.invisibleRootItem()
+            if candidate_parent == source_parent:
+                break
+            candidate = candidate.parent()
+
+        if candidate is not None and candidate != source_item:
+            # A same-level sibling was found — always reorder, never insert into it.
+            target_parent = source_parent
+            insert_row = candidate.row()
+        else:
+            # No same-level ancestor found → cross-level move.
+            drop_parent = drop_item.parent() or self.model.invisibleRootItem()
+            drop_type = self.get_check_type_from_item(drop_item)
+            if drop_type in ("dictionary", "array") and (
+                drop_item.rowCount() == 0 or self.tree.isExpanded(self.model.indexFromItem(drop_item))
+            ):
+                target_parent = drop_item
+                insert_row = 0
+            else:
+                target_parent = drop_parent
+                insert_row = drop_item.row()
+
+        # Don't allow dropping into self or any descendant.
+        check = target_parent
+        while check and check != self.model.invisibleRootItem():
+            if check == source_item:
+                return None
+            check = check.parent()
+
+        if source_parent == target_parent and source_item.row() == insert_row:
+            return None  # No-op
+
+        return target_parent, insert_row
 
     def _handle_drag(self, event):
         pos = event.position().toPoint() if hasattr(event.position(), "toPoint") else event.pos()
-        index = self.tree.currentIndex()
-        item = self.item_from_index(index)
+        item = self.drag_source_item
         if item is None or item == self.root_item():
             return
 
@@ -2611,42 +2719,23 @@ class PlistWindow(QMainWindow):
             return
 
         drop_item = self.item_from_index(drop_index)
-        if drop_item is None or drop_item == item:
+        result = self._resolve_drop(item, drop_item)
+        if result is None:
             return
 
-        drop_type = self.get_check_type_from_item(drop_item)
-        target_parent = drop_item
-        insert_row = 0
+        target_parent, insert_row = result
+        if self._should_suppress_drop(insert_row, item.row(), pos.y()):
+            return
 
-        if drop_type in ("dictionary", "array") and (
-            drop_item.rowCount() == 0 or self.tree.isExpanded(self.model.indexFromItem(drop_item))
-        ):
-            target_parent = drop_item
-            insert_row = 0
-        else:
-            target_parent = drop_item.parent() or self.model.invisibleRootItem()
-            insert_row = drop_item.row()
-
-        # Don't move into self
-        check = target_parent
-        while check and check != self.model.invisibleRootItem():
-            if check == item:
-                return
-            check = check.parent()
-
-        # Perform the move
         source_parent = item.parent() or self.model.invisibleRootItem()
-        if source_parent == target_parent and item.row() == insert_row:
-            return
-
         row_data = source_parent.takeRow(item.row())
         target_parent.insertRow(min(insert_row, target_parent.rowCount()), row_data)
+        self.drag_last_move_y = pos.y()
 
     def _confirm_drag(self, event):
         if not self.drag_undo:
             return
-        index = self.tree.currentIndex()
-        item = self.item_from_index(index)
+        item = self.drag_source_item
         if item is None:
             return
 

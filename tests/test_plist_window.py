@@ -621,3 +621,213 @@ class TestPathHelpers:
         parts = win._get_cell_path_list(leaf)
         assert "Root" not in parts
         assert parts == ["level1", "leaf"]
+
+
+# ── 10. Move item (up / down) ───────────────────────────────────
+
+
+class TestMoveItem:
+    def _keys(self, win):
+        root = win.root_item()
+        return [root.child(r, COL_KEY).text() for r in range(root.rowCount())]
+
+    def test_move_item_down(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2), ("c", 3)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(0, COL_KEY)  # "a" at row 0
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        win.move_item(1)
+        assert self._keys(win) == ["b", "a", "c"]
+
+    def test_move_item_up(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2), ("c", 3)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(2, COL_KEY)  # "c" at row 2
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        win.move_item(-1)
+        assert self._keys(win) == ["a", "c", "b"]
+
+    def test_move_item_up_at_top_is_noop(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(0, COL_KEY)  # already at top
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        win.move_item(-1)
+        assert self._keys(win) == ["a", "b"]
+
+    def test_move_item_down_at_bottom_is_noop(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(1, COL_KEY)  # already at bottom
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        win.move_item(1)
+        assert self._keys(win) == ["a", "b"]
+
+    def test_move_item_records_undo(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(0, COL_KEY)
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        before = len(win.undo_stack)
+        win.move_item(1)
+        assert len(win.undo_stack) == before + 1
+        assert win.undo_stack[-1][0]["type"] == "move"
+
+    def test_move_item_undo_restores_order(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2), ("c", 3)])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        item = root.child(0, COL_KEY)  # move "a" down
+        win.tree.setCurrentIndex(win.model.indexFromItem(item))
+        win.move_item(1)
+        assert self._keys(win) == ["b", "a", "c"]
+        win.reundo(undo=True)
+        assert self._keys(win) == ["a", "b", "c"]
+
+    def test_move_item_in_array_reindexes(self, qapp):
+        data = OrderedDict([("arr", ["x", "y", "z"])])
+        win = make_window(qapp, data)
+        root = win.root_item()
+        arr_item = root.child(0, COL_KEY)
+        first = arr_item.child(0, COL_KEY)  # index "0"
+        win.tree.setCurrentIndex(win.model.indexFromItem(first))
+        win.move_item(1)
+        # After moving index 0 down, it should now be at row 1
+        assert arr_item.child(0, COL_KEY).text() == "0"
+        assert arr_item.child(1, COL_KEY).text() == "1"
+        assert arr_item.child(2, COL_KEY).text() == "2"
+
+
+# ── 11. Drag drop placement (_resolve_drop) ──────────────────────
+
+
+class TestResolveDrop:
+    """Tests for the drag-and-drop placement helper, independent of mouse events."""
+
+    def _make(self, qapp):
+        """Window with:  root -> {a: {x:1, y:2}, b: "hello"}"""
+        inner = OrderedDict([("x", 1), ("y", 2)])
+        data = OrderedDict([("a", inner), ("b", "hello")])
+        win = make_window(qapp, data)
+        # Expand "a" so the collection logic can see it is expanded.
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)
+        win.tree.expand(win.model.indexFromItem(a_item))
+        return win
+
+    def test_same_level_sibling_reorder(self, qapp):
+        """Dragging 'b' over 'a' (same parent) → sibling placement, not into 'a'."""
+        win = self._make(qapp)
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)  # expanded dict
+        b_item = root.child(1, COL_KEY)  # string
+
+        result = win._resolve_drop(b_item, a_item)
+        assert result is not None, "drop should be valid"
+        target_parent, insert_row = result
+        # Must land at the same level (root), not inside 'a'
+        assert target_parent == root
+        assert insert_row == a_item.row()  # i.e. row 0
+
+    def test_same_level_expanded_dict_does_not_swallow_sibling(self, qapp):
+        """'a' is an expanded dict — dragging 'b' over it should NOT insert into it."""
+        win = self._make(qapp)
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)
+        b_item = root.child(1, COL_KEY)
+
+        result = win._resolve_drop(b_item, a_item)
+        target_parent, _ = result
+        assert target_parent is not a_item, "must not insert into the sibling collection"
+
+    def test_hover_over_child_of_sibling_reorders_at_same_level(self, qapp):
+        """Core regression: mouse drifts over a child of the sibling (because it is
+        expanded) — the source must still land as a sibling, not inside the child."""
+        win = self._make(qapp)
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)  # expanded dict
+        b_item = root.child(1, COL_KEY)
+        x_item = a_item.child(0, COL_KEY)  # child of 'a' — this is what indexAt returns
+        #                                     when the cursor is inside 'a's expanded area
+
+        # Dragging 'b' while hovering over x (a child of sibling 'a') must place
+        # 'b' BEFORE 'a' at the root level, not inside 'a'.
+        result = win._resolve_drop(b_item, x_item)
+        assert result is not None
+        target_parent, insert_row = result
+        assert target_parent == root  # stays at root level
+        assert insert_row == a_item.row()  # before 'a'
+
+    def test_cannot_drop_into_self(self, qapp):
+        """Dragging a collection into itself returns None."""
+        win = self._make(qapp)
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)
+        x_item = a_item.child(0, COL_KEY)
+
+        # 'a' dragged over one of its own children
+        result = win._resolve_drop(a_item, x_item)
+        assert result is None
+
+    def test_noop_same_position(self, qapp):
+        """Source and drop at the same row returns None."""
+        win = self._make(qapp)
+        root = win.root_item()
+        a_item = root.child(0, COL_KEY)
+
+        result = win._resolve_drop(a_item, a_item)
+        assert result is None
+
+
+# ── 12. Drag hysteresis (_should_suppress_drop) ──────────────────
+
+
+class TestDragHysteresis:
+    """_should_suppress_drop must block immediate reverse swaps (oscillation)."""
+
+    def _win(self, qapp):
+        data = OrderedDict([("a", 1), ("b", 2), ("c", 3)])
+        return make_window(qapp, data)
+
+    def test_no_suppression_without_previous_move(self, qapp):
+        """First move is always allowed (drag_last_move_y is None)."""
+        win = self._win(qapp)
+        root = win.root_item()
+        b = root.child(1, COL_KEY)
+        win.tree.setCurrentIndex(win.model.indexFromItem(b))
+        assert win._should_suppress_drop(0, b.row(), 50) is False
+
+    def test_suppresses_immediate_reverse_moving_down(self, qapp):
+        """After moving UP at y=30, a DOWN move at y=32 is suppressed (< 30+6)."""
+        win = self._win(qapp)
+        win.drag_last_move_y = 30
+        root = win.root_item()
+        root.child(0, COL_KEY)  # source at row 0 (moved here going up)
+        # Attempting to move DOWN (insert_row=1 > source_row=0) at y=32
+        assert win._should_suppress_drop(1, 0, 32) is True
+
+    def test_allows_move_down_after_sufficient_travel(self, qapp):
+        """After moving UP at y=30, a DOWN move at y=40 clears the threshold."""
+        win = self._win(qapp)
+        win.drag_last_move_y = 30
+        # y=40 >= 30+6=36 → not suppressed
+        assert win._should_suppress_drop(1, 0, 40) is False
+
+    def test_suppresses_immediate_reverse_moving_up(self, qapp):
+        """After moving DOWN at y=50, an UP move at y=47 is suppressed (> 50-6)."""
+        win = self._win(qapp)
+        win.drag_last_move_y = 50
+        # Attempting to move UP (insert_row=0 < source_row=1) at y=47
+        assert win._should_suppress_drop(0, 1, 47) is True
+
+    def test_allows_move_up_after_sufficient_travel(self, qapp):
+        """After moving DOWN at y=50, an UP move at y=40 clears the threshold."""
+        win = self._win(qapp)
+        win.drag_last_move_y = 50
+        # y=40 <= 50-6=44 → not suppressed
+        assert win._should_suppress_drop(0, 1, 40) is False

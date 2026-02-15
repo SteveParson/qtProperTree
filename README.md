@@ -2,11 +2,19 @@
 
 qtProperTree is a cross-platform GUI plist editor written in Python and Qt (PySide6).
 
+## Disclaimer
+
+The code in this repository was authored with the assistance of a large language model (LLM). It is provided as-is, without warranty of any kind. The maintainer takes no responsibility for bugs, data loss, or any other issues that may arise from its use. Use at your own risk.
+
+## Acknowledgements
+
+qtProperTree is a Qt port of [ProperTree](https://github.com/corpnewt/ProperTree) by [corpnewt](https://github.com/corpnewt). All credit for the original concept, feature set, and OpenCore integration goes to them.
+
 ## Features
 
 - [x] Cross-platform - works on macOS, Windows, and Linux
 - [x] Document-based to support multiple windows
-- [x] Node drag and drop to reorder
+- [x] Reorder nodes by drag and drop, or with `Ctrl+Up` / `Ctrl+Down` — moves are fully undoable
 - [x] Copy and paste
 - [x] Find/Replace - allows searching keys or values
 - [x] Ordered - or unordered - dictionary support
@@ -15,14 +23,15 @@ qtProperTree is a cross-platform GUI plist editor written in Python and Qt (PySi
 - [x] Context-aware right-click menu that includes template info to OpenCore or Clover config.plist files
 - [x] OC (Clean) Snapshot to walk the contents of ACPI, Drivers, Kexts, and Tools for OpenCore config.plist files
 - [x] Value converter that supports Base64, Hex, Ascii, and Decimal
+- [x] Settings dialog (`Ctrl+,`) to configure behaviour, display defaults, drag dead zone, undo limit, and more
 
 ***
 
 ## Getting qtProperTree
 
-### Downloading The Repo As A ZIP File
+### Downloading A Release
 
-On any system you can choose the green `Code` button, followed by the `Download ZIP` button (or click [here](https://github.com/SteveParson/qtProperTree/archive/refs/heads/master.zip)) to download the entire repo as a zip file (note, this does not allow you to update via `git pull` - any updates would require you to download the repo again in the same fashion).
+Pre-built macOS `.dmg` files (arm64 and x86_64) are available on the [releases page](https://github.com/SteveParson/qtProperTree/releases). Download the `.dmg` for your architecture, open it, and drag the app to your Applications folder.
 
 ### Cloning The Repo Via Git
 
@@ -71,22 +80,24 @@ qtProperTree/
 
 ***
 
-## FAQ
+## Keyboard Shortcuts
 
-* **What does OC Snapshot do?**
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Z` / `Ctrl+Y` | Undo / Redo |
+| `Ctrl+C` / `Ctrl+V` | Copy / Paste |
+| `Ctrl+Shift+C` | Copy children |
+| `Ctrl+=` | New row |
+| `Ctrl+-` | Remove row |
+| `Ctrl+Up` | Move selected item up |
+| `Ctrl+Down` | Move selected item down |
+| `Ctrl+[` / `Ctrl+]` | Cycle type backward / forward |
+| `Return` | Edit selected cell |
+| `Delete` / `Backspace` | Remove selected row |
+| `Ctrl+F` | Toggle Find/Replace |
+| `Ctrl+P` | Toggle Type pane |
+| `Ctrl+R` | OC Snapshot |
+| `Ctrl+Shift+R` | OC Clean Snapshot |
+| `Ctrl+,` | Settings |
+| `Ctrl+T` | Value Converter |
 
-  The OC Snapshot function will prompt you to select an OC folder, then walk the contents of the ACPI, Kexts, Tools, and Drivers directories within that folder - comparing all entries to the current document's `ACPI -> Add`, `Kernel -> Add`, `Misc -> Tools`, and `UEFI -> Drivers` respectively.  It will add or remove entries as needed, and also ensures kext load order by comparing each kext's `CFBundleIdentifier` to all other kexts' `OSBundleLibraries` within their Info.plist - making sure that any kext that is relied on by others is loaded before them.  It will also warn if it detects duplicate `CFBundleIdentifiers` (with support for `MinKernel`, `MaxKernel`, and `MatchKernel` overlap checks), and offer to disable all after the first found.  It checks for disabled parent kexts with enabled child kexts as well.  The schema used is (by default) determined by comparing the MD5 hash of the `OpenCore.efi` file to a known list of Acidanthera debug/release versions.  If the MD5 hash does not match any known version, it will fall back to the newest schema in the script's `snapshot.plist`.  This behavior can be customized in the Settings per the `OC Snapshot Target Version` menu.
-
-* **What is the difference between OC Snapshot and OC Clean Snapshot?**
-
-  Both snapshot variants accomplish the same tasks - they just leverage different starting points.  An OC **Clean** Snapshot will first clear out `ACPI -> Add`, `Kernel -> Add`, `Misc -> Tools`, and `UEFI -> Drivers`, then add everything from within the respective ACPI, Kexts, Tools, and Drivers directory anew.  A regular OC Snapshot starts with the information within the current document for those four locations, and only pulls changes - adding and removing entries as needed.
-
-* **When should I use an OC Clean Snapshot vs an OC Snapshot?**
-
-  Typically, an OC **Clean** Snapshot should only be used the first time you snapshot to ensure any sample entries in the config.plist are removed and added anew.  Every subsequent snapshot should be a regular OC Snapshot to ensure any customizations you've made are preserved.
-
-* **How can I have qtProperTree open when I double-click a .plist file?**
-
-  On macOS you can associate `.plist` files with the qtProperTree application.
-
-  On Windows, you can associate `.plist` files with `qtpropertree` to add an `Open with qtProperTree` option to the context menu when right-clicking .plist files.

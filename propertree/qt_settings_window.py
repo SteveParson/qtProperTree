@@ -141,11 +141,11 @@ class SettingsWindow(QDialog):
         row += 1
 
         # 7. Default new plist type
-        lbl = QLabel("Default New Plist Type:")
+        self.lbl_plist_type = QLabel("Default New Plist Type:")
         self.cmb_plist_type = QComboBox()
         self.cmb_plist_type.addItems(self.ALLOWED_TYPES)
         self.cmb_plist_type.currentTextChanged.connect(self._on_plist_type)
-        grid.addWidget(lbl, row, 0)
+        grid.addWidget(self.lbl_plist_type, row, 0)
         grid.addWidget(self.cmb_plist_type, row, 1)
         row += 1
 
@@ -177,10 +177,10 @@ class SettingsWindow(QDialog):
         row += 1
 
         # 11. Snapshot version
-        lbl = QLabel("OC Snapshot Target Version:")
+        self.lbl_snapshot = QLabel("OC Snapshot Target Version:")
         self.cmb_snapshot = QComboBox()
         self.cmb_snapshot.currentTextChanged.connect(self._on_snapshot_version)
-        grid.addWidget(lbl, row, 0)
+        grid.addWidget(self.lbl_snapshot, row, 0)
         grid.addWidget(self.cmb_snapshot, row, 1)
         row += 1
 
@@ -267,34 +267,34 @@ class SettingsWindow(QDialog):
         rrow += 1
 
         # 2. Highlight color
-        lbl = QLabel("Highlight Color:")
+        self.lbl_hl = QLabel("Highlight Color:")
         self.swatch_highlight = ColorSwatch()
         self.swatch_highlight.clicked.connect(lambda: self._pick_color("highlight_color", self.swatch_highlight))
-        grid.addWidget(lbl, rrow, 3)
+        grid.addWidget(self.lbl_hl, rrow, 3)
         grid.addWidget(self.swatch_highlight, rrow, 4)
         rrow += 1
 
         # 3. Alternating row color 1
-        lbl = QLabel("Alternating Row Color #1:")
+        self.lbl_alt1 = QLabel("Alternating Row Color #1:")
         self.swatch_alt1 = ColorSwatch()
         self.swatch_alt1.clicked.connect(lambda: self._pick_color("alternating_color_1", self.swatch_alt1))
-        grid.addWidget(lbl, rrow, 3)
+        grid.addWidget(self.lbl_alt1, rrow, 3)
         grid.addWidget(self.swatch_alt1, rrow, 4)
         rrow += 1
 
         # 4. Alternating row color 2
-        lbl = QLabel("Alternating Row Color #2:")
+        self.lbl_alt2 = QLabel("Alternating Row Color #2:")
         self.swatch_alt2 = ColorSwatch()
         self.swatch_alt2.clicked.connect(lambda: self._pick_color("alternating_color_2", self.swatch_alt2))
-        grid.addWidget(lbl, rrow, 3)
+        grid.addWidget(self.lbl_alt2, rrow, 3)
         grid.addWidget(self.swatch_alt2, rrow, 4)
         rrow += 1
 
         # 5. Background color
-        lbl = QLabel("Column Header/BG Color:")
+        self.lbl_bg = QLabel("Column Header/BG Color:")
         self.swatch_bg = ColorSwatch()
         self.swatch_bg.clicked.connect(lambda: self._pick_color("background_color", self.swatch_bg))
-        grid.addWidget(lbl, rrow, 3)
+        grid.addWidget(self.lbl_bg, rrow, 3)
         grid.addWidget(self.swatch_bg, rrow, 4)
         rrow += 1
 
@@ -357,31 +357,31 @@ class SettingsWindow(QDialog):
         rrow += 1
 
         # Restore appearance defaults label + separator
-        restore_lbl = QLabel("Restore Appearance Defaults:")
-        restore_lbl.setStyleSheet("font-weight: bold;")
-        grid.addWidget(restore_lbl, rrow, 3, 1, 2)
+        self.lbl_restore = QLabel("Restore Appearance Defaults:")
+        self.lbl_restore.setStyleSheet("font-weight: bold;")
+        grid.addWidget(self.lbl_restore, rrow, 3, 1, 2)
         rrow += 1
 
         # 13. Font Defaults button
-        btn_font_defaults = QPushButton("Font Defaults")
-        btn_font_defaults.clicked.connect(self._on_font_defaults)
-        grid.addWidget(btn_font_defaults, rrow, 3)
+        self.btn_font_defaults = QPushButton("Font Defaults")
+        self.btn_font_defaults.clicked.connect(self._on_font_defaults)
+        grid.addWidget(self.btn_font_defaults, rrow, 3)
 
         # Light mode colors
-        btn_light = QPushButton("Light Mode Colors")
-        btn_light.clicked.connect(lambda: self._swap_colors("light"))
-        grid.addWidget(btn_light, rrow, 4)
+        self.btn_light = QPushButton("Light Mode Colors")
+        self.btn_light.clicked.connect(lambda: self._swap_colors("light"))
+        grid.addWidget(self.btn_light, rrow, 4)
         rrow += 1
 
         # 14. Highlight color reset
-        btn_hl_default = QPushButton("Highlight Color")
-        btn_hl_default.clicked.connect(lambda: self._swap_colors("highlight"))
-        grid.addWidget(btn_hl_default, rrow, 3)
+        self.btn_hl_default = QPushButton("Highlight Color")
+        self.btn_hl_default.clicked.connect(lambda: self._swap_colors("highlight"))
+        grid.addWidget(self.btn_hl_default, rrow, 3)
 
         # Dark mode colors
-        btn_dark = QPushButton("Dark Mode Colors")
-        btn_dark.clicked.connect(lambda: self._swap_colors("dark"))
-        grid.addWidget(btn_dark, rrow, 4)
+        self.btn_dark = QPushButton("Dark Mode Colors")
+        self.btn_dark.clicked.connect(lambda: self._swap_colors("dark"))
+        grid.addWidget(self.btn_dark, rrow, 4)
         rrow += 1
 
         # ---- Bottom row spanning both columns ----
@@ -425,6 +425,47 @@ class SettingsWindow(QDialog):
         bottom_row += 1
 
         self.setLayout(grid)
+        self._disable_unimplemented()
+
+    def _disable_unimplemented(self):
+        """Grey out every control whose setting is saved but not yet applied."""
+        tip = "Not yet implemented"
+        for w in (
+            # Left column
+            self.lbl_plist_type,
+            self.cmb_plist_type,
+            self.lbl_snapshot,
+            self.cmb_snapshot,
+            self.chk_force_schema,
+            self.chk_warn_modified,
+            # Right column — colors
+            self.lbl_hl,
+            self.swatch_highlight,
+            self.lbl_alt1,
+            self.swatch_alt1,
+            self.lbl_alt2,
+            self.swatch_alt2,
+            self.lbl_bg,
+            self.swatch_bg,
+            self.chk_header_ignore,
+            self.chk_inv_bg,
+            self.chk_inv_r1,
+            self.chk_inv_r2,
+            self.chk_inv_hl,
+            # Right column — fonts
+            self.chk_font_size,
+            self.spn_font_size,
+            self.chk_font_family,
+            self.cmb_font_family,
+            # Restore appearance defaults section
+            self.lbl_restore,
+            self.btn_font_defaults,
+            self.btn_light,
+            self.btn_hl_default,
+            self.btn_dark,
+        ):
+            w.setEnabled(False)
+            w.setToolTip(tip)
 
     # ------------------------------------------------------------------
     # Settings load / populate

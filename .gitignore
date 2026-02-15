@@ -108,3 +108,4 @@ propertree/settings.json
 Configuration.tex
 .DS_Store
 ProperTree.app
+/config.plist
