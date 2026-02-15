@@ -24,6 +24,7 @@ qtProperTree is a Qt port of [ProperTree](https://github.com/corpnewt/ProperTree
 - [x] OC (Clean) Snapshot to walk the contents of ACPI, Drivers, Kexts, and Tools for OpenCore config.plist files
 - [x] Value converter that supports Base64, Hex, Ascii, and Decimal
 - [x] Settings dialog (`Ctrl+,`) to configure behaviour, display defaults, drag dead zone, undo limit, and more
+- [x] Appearance customisation — configurable highlight color, alternating row colors, header background, custom font family and size, window opacity, and light/dark color presets
 
 ***
 

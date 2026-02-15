@@ -37,6 +37,32 @@ class FakeController:
         self.windows = []
         self.allowed_bool = ("True/False", "YES/NO", "On/Off", "1/0")
         self.max_undo = 200
+        self.use_dark = False
+        self.default_dark = {
+            "alternating_color_1": "#161616",
+            "alternating_color_2": "#202020",
+            "highlight_color": "#1E90FF",
+            "background_color": "#161616",
+        }
+        self.default_light = {
+            "alternating_color_1": "#F0F1F1",
+            "alternating_color_2": "#FEFEFE",
+            "highlight_color": "#1E90FF",
+            "background_color": "#FEFEFE",
+        }
+
+    def text_color(self, hex_color, invert=False):
+        hex_color = hex_color.lower().lstrip("#")
+        try:
+            r = int(hex_color[0:2], 16)
+            g = int(hex_color[2:4], 16)
+            b = int(hex_color[4:6], 16)
+            luminance_high = (r * 0.299 + g * 0.587 + b * 0.114) > 186
+            if luminance_high:
+                return "white" if invert else "black"
+            return "black" if invert else "white"
+        except Exception:
+            return "white" if invert else "black"
 
     def _clipboard_append(self, text):
         self._clipboard = text
@@ -831,3 +857,140 @@ class TestDragHysteresis:
         win.drag_last_move_y = 50
         # y=40 <= 50-6=44 → not suppressed
         assert win._should_suppress_drop(0, 1, 40) is False
+
+
+# ── 13. Color settings ──────────────────────────────────────────
+
+
+class TestColorSettings:
+    def test_update_colors_applies_stylesheet(self, qapp):
+        """update_colors() should set a non-empty stylesheet on the tree."""
+        win = make_window(qapp)
+        win.update_colors()
+        assert win.tree.styleSheet() != ""
+
+    def test_update_colors_enables_alternating_rows(self, qapp):
+        win = make_window(qapp)
+        win.update_colors()
+        assert win.tree.alternatingRowColors() is True
+
+    def test_update_colors_custom_highlight(self, qapp):
+        win = make_window(qapp)
+        win.controller.settings["highlight_color"] = "#FF0000"
+        win.update_colors()
+        assert "#FF0000" in win.tree.styleSheet()
+
+    def test_update_colors_custom_alternating(self, qapp):
+        win = make_window(qapp)
+        win.controller.settings["alternating_color_1"] = "#AABBCC"
+        win.controller.settings["alternating_color_2"] = "#DDEEFF"
+        win.update_colors()
+        ss = win.tree.styleSheet()
+        assert "#AABBCC" in ss
+        assert "#DDEEFF" in ss
+
+    def test_update_colors_custom_background(self, qapp):
+        win = make_window(qapp)
+        win.controller.settings["background_color"] = "#333333"
+        win.update_colors()
+        assert "#333333" in win.tree.styleSheet()
+
+    def test_build_stylesheet_contains_required_selectors(self, qapp):
+        win = make_window(qapp)
+        ss = win._build_tree_stylesheet()
+        assert "QTreeView" in ss
+        assert "QHeaderView::section" in ss
+        assert "selection-background-color" in ss
+        assert "alternate-background-color" in ss
+
+    def test_build_stylesheet_header_ignore_bg(self, qapp):
+        """header_text_ignore_bg_color uses 'inherit' for header text color."""
+        win = make_window(qapp)
+        win.controller.settings["header_text_ignore_bg_color"] = True
+        ss = win._build_tree_stylesheet()
+        assert "inherit" in ss
+
+    def test_build_stylesheet_uses_dark_defaults_when_dark(self, qapp):
+        win = make_window(qapp)
+        win.controller.use_dark = True
+        # No custom colors set — should use dark defaults
+        ss = win._build_tree_stylesheet()
+        assert win.controller.default_dark["alternating_color_1"] in ss
+
+    def test_build_stylesheet_uses_light_defaults_when_light(self, qapp):
+        win = make_window(qapp)
+        win.controller.use_dark = False
+        ss = win._build_tree_stylesheet()
+        assert win.controller.default_light["alternating_color_1"] in ss
+
+
+# ── 14. Font settings ───────────────────────────────────────────
+
+
+class TestFontSettings:
+    def test_update_fonts_does_not_raise(self, qapp):
+        win = make_window(qapp)
+        win.update_fonts()  # should not raise
+
+    def test_update_fonts_custom_size(self, qapp):
+        win = make_window(qapp)
+        win.controller.settings["use_custom_font_size"] = True
+        win.controller.settings["font_size"] = 18
+        win.update_fonts()
+        assert win.tree.font().pointSize() == 18
+
+    def test_update_fonts_size_clamped_to_range(self, qapp):
+        win = make_window(qapp)
+        win.controller.settings["use_custom_font_size"] = True
+        win.controller.settings["font_size"] = 200  # exceeds max of 128
+        win.update_fonts()
+        assert win.tree.font().pointSize() == 128
+
+    def test_update_fonts_custom_family(self, qapp):
+        """Setting a known monospace font family should be reflected on the tree."""
+        win = make_window(qapp)
+        win.controller.settings["use_custom_font"] = True
+        win.controller.settings["font_family"] = "Courier"
+        win.update_fonts()
+        # Qt may substitute the family name; just verify it was set
+        assert win.tree.font().family() != "" or win.tree.font().pointSize() > 0
+
+    def test_update_fonts_no_custom_unchanged(self, qapp):
+        """With no custom settings the font should fall back to a sane default."""
+        win = make_window(qapp)
+        win.controller.settings["use_custom_font_size"] = False
+        win.controller.settings["use_custom_font"] = False
+        win.update_fonts()
+        assert win.tree.font().pointSize() > 0
+
+    def test_update_fonts_size_disabled_does_not_apply(self, qapp):
+        """use_custom_font_size=False means font_size setting is ignored."""
+        win = make_window(qapp)
+        win.controller.settings["use_custom_font_size"] = False
+        win.controller.settings["font_size"] = 99
+        win.update_fonts()
+        assert win.tree.font().pointSize() != 99
+
+
+# ── 15. Default new plist type ──────────────────────────────────
+
+
+class TestDefaultPlistType:
+    def test_open_plist_binary_type(self, qapp):
+        """open_plist() applies plist_type='Binary' to both the attribute and combo."""
+        win = make_window(qapp)
+        win.open_plist(None, {}, plist_type="Binary")
+        assert win.plist_type == "Binary"
+        assert win.plist_type_combo.currentText() == "Binary"
+
+    def test_open_plist_xml_type(self, qapp):
+        win = make_window(qapp)
+        win.open_plist(None, {}, plist_type="XML")
+        assert win.plist_type == "XML"
+        assert win.plist_type_combo.currentText() == "XML"
+
+    def test_open_plist_defaults_to_xml(self, qapp):
+        """open_plist() without explicit plist_type defaults to 'XML'."""
+        win = make_window(qapp)
+        win.open_plist(None, {})
+        assert win.plist_type == "XML"

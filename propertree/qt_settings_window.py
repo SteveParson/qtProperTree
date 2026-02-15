@@ -431,38 +431,10 @@ class SettingsWindow(QDialog):
         """Grey out every control whose setting is saved but not yet applied."""
         tip = "Not yet implemented"
         for w in (
-            # Left column
-            self.lbl_plist_type,
-            self.cmb_plist_type,
             self.lbl_snapshot,
             self.cmb_snapshot,
             self.chk_force_schema,
             self.chk_warn_modified,
-            # Right column — colors
-            self.lbl_hl,
-            self.swatch_highlight,
-            self.lbl_alt1,
-            self.swatch_alt1,
-            self.lbl_alt2,
-            self.swatch_alt2,
-            self.lbl_bg,
-            self.swatch_bg,
-            self.chk_header_ignore,
-            self.chk_inv_bg,
-            self.chk_inv_r1,
-            self.chk_inv_r2,
-            self.chk_inv_hl,
-            # Right column — fonts
-            self.chk_font_size,
-            self.spn_font_size,
-            self.chk_font_family,
-            self.cmb_font_family,
-            # Restore appearance defaults section
-            self.lbl_restore,
-            self.btn_font_defaults,
-            self.btn_light,
-            self.btn_hl_default,
-            self.btn_dark,
         ):
             w.setEnabled(False)
             w.setToolTip(tip)

@@ -126,7 +126,7 @@ class PlistWindow(QMainWindow):
         self.tree.setModel(self.model)
         self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
         self.tree.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.tree.setAlternatingRowColors(False)  # We handle this ourselves
+        self.tree.setAlternatingRowColors(True)
         self.tree.setExpandsOnDoubleClick(False)
         self.tree.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.tree.setDragDropMode(QAbstractItemView.NoDragDrop)
@@ -181,6 +181,10 @@ class PlistWindow(QMainWindow):
 
         # Opacity
         self._apply_opacity()
+
+        # Apply color/font settings
+        self.update_colors()
+        self.update_fonts()
 
         # Track window
         controller.windows.append(self)
@@ -1108,6 +1112,88 @@ class PlistWindow(QMainWindow):
         except (ValueError, TypeError):
             opacity = 100
         self.setWindowOpacity(float(opacity) / 100.0)
+
+    def _build_tree_stylesheet(self):
+        """Generate a QSS stylesheet for the tree based on the current color settings."""
+        s = self.controller.settings
+        dark = getattr(self.controller, "use_dark", False)
+        default_dark = getattr(
+            self.controller,
+            "default_dark",
+            {
+                "alternating_color_1": "#161616",
+                "alternating_color_2": "#202020",
+                "highlight_color": "#1E90FF",
+                "background_color": "#161616",
+            },
+        )
+        default_light = getattr(
+            self.controller,
+            "default_light",
+            {
+                "alternating_color_1": "#F0F1F1",
+                "alternating_color_2": "#FEFEFE",
+                "highlight_color": "#1E90FF",
+                "background_color": "#FEFEFE",
+            },
+        )
+        defaults = default_dark if dark else default_light
+
+        alt1 = s.get("alternating_color_1", defaults["alternating_color_1"])
+        alt2 = s.get("alternating_color_2", defaults["alternating_color_2"])
+        hl = s.get("highlight_color", defaults["highlight_color"])
+        bg = s.get("background_color", defaults["background_color"])
+
+        get_text = getattr(self.controller, "text_color", lambda c, invert=False: "black")
+        row1_color = get_text(alt1, invert=s.get("invert_row1_text_color", False))
+        row2_color = get_text(alt2, invert=s.get("invert_row2_text_color", False))
+        hl_color = get_text(hl, invert=s.get("invert_hl_text_color", False))
+        if s.get("header_text_ignore_bg_color", False):
+            header_text = "inherit"
+        else:
+            header_text = get_text(bg, invert=s.get("invert_background_text_color", False))
+
+        return (
+            "QTreeView {{"
+            " background-color: {alt1};"
+            " alternate-background-color: {alt2};"
+            " color: {row1};"
+            " selection-background-color: {hl};"
+            " selection-color: {hlc};"
+            "}}"
+            " QTreeView::item {{ color: {row1}; }}"
+            " QTreeView::item:alternate {{ color: {row2}; }}"
+            " QTreeView::item:selected {{ background-color: {hl}; color: {hlc}; }}"
+            " QTreeView::item:selected:alternate {{ background-color: {hl}; color: {hlc}; }}"
+            " QHeaderView::section {{"
+            "  background-color: {bg};"
+            "  color: {htxt};"
+            "  border: 1px solid {alt2};"
+            "  padding: 2px 4px;"
+            "}}"
+        ).format(alt1=alt1, alt2=alt2, hl=hl, bg=bg, row1=row1_color, row2=row2_color, hlc=hl_color, htxt=header_text)
+
+    def update_colors(self):
+        """Apply color settings from the controller to the tree view."""
+        self.tree.setAlternatingRowColors(True)
+        self.tree.setStyleSheet(self._build_tree_stylesheet())
+
+    def update_fonts(self):
+        """Apply font settings from the controller to the tree view."""
+        s = self.controller.settings
+        base_font = QApplication.font()
+        family = base_font.family()
+        size = base_font.pointSize()
+        if size <= 0:
+            size = 10
+        if s.get("use_custom_font", False) and s.get("font_family"):
+            family = s["font_family"]
+        if s.get("use_custom_font_size", False) and s.get("font_size"):
+            try:
+                size = max(1, min(128, int(s["font_size"])))
+            except (TypeError, ValueError):
+                pass
+        self.tree.setFont(QFont(family, size))
 
     # ── Type Change Callbacks ────────────────────────────────────
 

@@ -227,12 +227,31 @@ class ProperTreeApp:
         check_dark = self.get_dark()
         if check_dark != self.use_dark:
             self.use_dark = check_dark
-            # Notify all open windows about the mode change
-            for window in list(self.windows):
-                try:
-                    window.update_colors()
-                except Exception:
-                    pass
+            self.update_colors()
+
+    def update_colors(self):
+        """Apply color settings to all open windows."""
+        for window in list(self.windows):
+            try:
+                window.update_colors()
+            except Exception:
+                pass
+
+    def update_fonts(self):
+        """Apply font settings to all open windows."""
+        for window in list(self.windows):
+            try:
+                window.update_fonts()
+            except Exception:
+                pass
+
+    def set_window_opacity(self, value):
+        """Apply the opacity setting to all open windows."""
+        for window in list(self.windows):
+            try:
+                window._apply_opacity()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Color helpers
@@ -442,7 +461,10 @@ class ProperTreeApp:
             title = self._get_unique_title(title="Untitled.plist")
             window = PlistWindow(self)
             self.add_window(window)
-            window.open_plist(title, {})
+            plist_type = self.settings.get("new_plist_default_type", "XML")
+            if plist_type not in self.allowed_types:
+                plist_type = "XML"
+            window.open_plist(title, {}, plist_type=plist_type)
             window.current_plist = None  # Ensure it is initialized as new
             window.show()
             window.raise_()
